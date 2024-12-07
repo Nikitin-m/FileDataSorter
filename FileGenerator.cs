@@ -9,7 +9,7 @@ internal sealed class FileGenerator
 
     public FileGenerator()
     {       
-        _words = Enumerable.Range(1, 100000)
+        _words = Enumerable.Range(1, 1000000)
             .Select(_ =>
             {
                 var wordLength = Enumerable.Range(5, _random.Next(20, 100));
@@ -36,12 +36,12 @@ internal sealed class FileGenerator
 
     private string GetLine()
     {
-        return $"{GetNumber()}.{GetString()}";
+        return $"{GetNumber()}. {GetString()}";
     }
 
     private int GetNumber()
     {
-        return _random.Next(0, int.MaxValue);
+        return _random.Next(0, 1000000);
     }
 
     private string GetString()
