@@ -9,145 +9,133 @@ var fileName = "f_1073741824.txt";//new FileGenerator().Generate(sizeInBytes);
 stopwatch.Stop();
 Console.WriteLine($"{fileName} generation took {stopwatch.ElapsedMilliseconds} ms");
 
+// stopwatch.Reset();
+// stopwatch.Start();
+// new InMemoryFileSorter().Sort(fileName);
+// stopwatch.Stop();
+// Console.WriteLine($"{fileName} sorting took {stopwatch.ElapsedMilliseconds} ms");
 
 stopwatch.Reset();
 stopwatch.Start();
-new InMemoryFileSorter().Sort(fileName);
+new FileSorter().Sort(fileName, 1024 * 1024 * 100); //100mb
 stopwatch.Stop();
 Console.WriteLine($"{fileName} sorting took {stopwatch.ElapsedMilliseconds} ms");
 
-
-stopwatch.Reset();
-stopwatch.Start();
-new FileSorter().Sort(fileName);
-stopwatch.Stop();
-Console.WriteLine($"{fileName} sorting took {stopwatch.ElapsedMilliseconds} ms");
-
-
-internal class FileSorter
+internal class ParsedLine : IComparable<ParsedLine>
 {
+    public string ReaderLine { get; }
+    public int Index { get; }
+    public string Str { get; }
+    public int Number { get; }
+
+    public ParsedLine(string line)
+    {
+        ReaderLine = line;
+
+        var span = ReaderLine.AsSpan();
+        Index = span.IndexOf('.');
+        Number = int.Parse(span.Slice(0, Index).ToString());
+        Str = span.Slice(Index + 2).ToString();
+    }
+
+    public int CompareTo(ParsedLine? other)
+    {
+        var stringComparison = string.Compare(Str, other.Str, StringComparison.Ordinal);
+        if (stringComparison != 0) 
+            return stringComparison;
+        return Number.CompareTo(other.Number);
+    }
+}
+
+internal class FileSorter : IDisposable
+{
+    private List<string> _batchFileNames;
+    
     public void Sort(string fileName, long maxBatchSize = 1024 * 1024 * 1024) // 1gb
     {
-        var dict = new Dictionary<string, List<int>>();
+        _batchFileNames = new List<string>();
+        SplitFileIntoBatchFiles(fileName, maxBatchSize);
+        MergeFiles(fileName);
+        RemoveBatchFiles();
+    }
+
+    private void SplitFileIntoBatchFiles(string fileName, long maxBatchSize)
+    {
+        var parsedLines = new List<ParsedLine>();
         using var reader = File.OpenText(fileName);
         var currentBatchSize = 0L;
-        var batchNames = new List<string>();
         while (true)
         {
             var line = reader.ReadLine();
-            if (string.IsNullOrWhiteSpace(line))
+            var lineIsEmpty = string.IsNullOrEmpty(line);
+            
+            if (lineIsEmpty && currentBatchSize == 0)
+                break;
+                        
+            if (lineIsEmpty || currentBatchSize >= maxBatchSize)
             {
-                if (currentBatchSize > 0)
-                    maxBatchSize = 0; //to create batch file
-                else break;
-            }
-            
-            var span = line.AsSpan();
-            var index = span.IndexOf('.');
-            var number = int.Parse(span.Slice(0, index));
-            var str = span.Slice(index + 2).ToString();
-            
-            if (dict.TryGetValue(str, out var value))
-                value.Add(number);
-            else 
-                dict.Add(str, new List<int> { number });
-            
-            currentBatchSize += Encoding.UTF8.GetBytes(line).Length;
-            
-            if (currentBatchSize >= maxBatchSize)
-            {
-                var batchFileName = $"batch{batchNames.Count + 1}_{fileName}";
-                batchNames.Add(batchFileName);
-                CreateSortedBatch(batchFileName, dict);
-                dict.Clear();
+                var batchFileName = $"batch{_batchFileNames.Count + 1}_{fileName}";
+                _batchFileNames.Add(batchFileName);
+                CreateSortedBatch(batchFileName, parsedLines);
+                parsedLines.Clear();
                 currentBatchSize = 0;
-            }
-        }
-
-        MergeFiles(fileName, batchNames);
-    }
-
-    private void CreateSortedBatch(string fileName, Dictionary<string, List<int>> dict)
-    {
-        using var writer = new StreamWriter(fileName);
-        foreach (var strNumber in dict.OrderBy(x=> x.Key))
-        {
-            var numbers = strNumber.Value.ToArray();
-            Array.Sort(numbers);
-            foreach (var number in numbers)
-            {
-                writer.Write(number);
-                writer.Write(". ");
-                writer.WriteLine(strNumber.Key);
-            }
-        }
-    }
-    
-    class Line
-    {
-        public Line(string line)
-        {
-            
-        }
-        var span = line.AsSpan();
-        var index = span.IndexOf('.');
-        var number = int.Parse(span.Slice(0, index));
-        var str = span.Slice(index + 2).ToString();
-    }
-    
-    private void MergeFiles(string fileName, List<string> fileNames)
-    {
-
-        using var writer = new StreamWriter(fileName);
-
-        var readers = fileNames.Select(x => new StreamReader(x)).ToArray();
-        var lines = readers
-            .Select(x => new
-            {
-                Reader = x,
-                Line = x.ReadLine()
-            })
-            .ToDictionary(x=> x.Reader, x=> x.Line);
-
-        while (lines.Count > 0)
-        {
-            
-        }
-        
-        var dict = new Dictionary<StreamReader, string?>(readers.Length);
-        foreach (var reader in readers)
-        {
-            dict[reader] = reader.ReadToEnd();
-            var line = reader.ReadLine();
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                dict.Add(reader, reader.ReadLine());
                 continue;
             }
-            
-            var span = line.AsSpan();
-            var index = span.IndexOf('.');
-            var number = int.Parse(span.Slice(0, index));
-            var str = span.Slice(index + 2).ToString();
-            
-            if (dict.TryGetValue(str, out var value))
-                value.Add(number);
-            else 
-                dict.Add(str, new List<int> { number });
-        }
-        
-        foreach (var strNumber in dict.OrderBy(x=> x.Key))
-        {
-            var numbers = strNumber.Value.ToArray();
-            Array.Sort(numbers);
-            writer.Write(numbers[0]);
-            writer.Write(". ");
-            writer.WriteLine(strNumber.Key);
-        }
 
-        foreach (var streamReader in readers)
-        {
-            streamReader.Dispose();
+            var parsedLine = new ParsedLine(line!);
+            parsedLines.Add(parsedLine);
+            currentBatchSize += Encoding.UTF8.GetBytes(line!).Length + Environment.NewLine.Length;
         }
+    }
+
+    private void CreateSortedBatch(string fileName, List<ParsedLine> parsedLines)
+    {
+        using var writer = new StreamWriter(fileName);
+        var parsedLinesArray = parsedLines.ToArray();
+        Array.Sort(parsedLinesArray);
+        foreach (var parsedLine in parsedLinesArray)
+        {
+            writer.WriteLine(parsedLine.ReaderLine);
+        }
+    }
+    
+    private void MergeFiles(string fileName)
+    {
+        using var writer = new StreamWriter(fileName);
+        var readers = _batchFileNames.Select(x => new StreamReader(x)).ToArray();
+        var readerLines = readers
+            .ToDictionary(x=> new ParsedLine(x.ReadLine()), x=> x);
+
+        while (readerLines.Count > 0)
+        {
+            var lines = readerLines.Keys.ToArray();
+            Array.Sort(lines);
+            var parsedLine = lines[0];
+            var reader = readerLines[parsedLine];
+            
+            writer.WriteLine(lines[0].ReaderLine);
+            readerLines.Remove(parsedLine);
+            
+            if (!reader.EndOfStream)
+                readerLines.Add(new ParsedLine(reader.ReadLine()), reader);
+            else 
+                readerLines.Remove(parsedLine);
+        }
+    }
+
+    private void RemoveBatchFiles()
+    {
+        foreach (var batchFileName in _batchFileNames)
+        {
+            if (File.Exists(batchFileName))
+            {
+                File.Delete(batchFileName);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        RemoveBatchFiles();
     }
 }

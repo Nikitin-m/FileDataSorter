@@ -1,5 +1,6 @@
 ﻿internal class InMemoryFileSorter
 {
+    //optimal only when a lot of equal strings
     public void Sort(string fileName)
     {
         var dict = new Dictionary<string, List<int>>();
