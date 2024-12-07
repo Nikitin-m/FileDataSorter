@@ -5,7 +5,7 @@ using FileDataSorter;
 
 var stopwatch = Stopwatch.StartNew();
 const long sizeInBytes = 1024 * 1024 * 1024; // 1gb
-var fileName = "f_1073741824.txt";//new FileGenerator().Generate(sizeInBytes);
+var fileName = new FileGenerator().Generate(sizeInBytes); //"f_1073741824.txt";
 stopwatch.Stop();
 Console.WriteLine($"{fileName} generation took {stopwatch.ElapsedMilliseconds} ms");
 
@@ -31,10 +31,9 @@ internal class ParsedLine : IComparable<ParsedLine>
     public ParsedLine(string line)
     {
         ReaderLine = line;
-
         var span = ReaderLine.AsSpan();
         Index = span.IndexOf('.');
-        Number = int.Parse(span.Slice(0, Index).ToString());
+        Number = int.Parse(span.Slice(0, Index));
         Str = span.Slice(Index + 2).ToString();
     }
 
@@ -47,7 +46,7 @@ internal class ParsedLine : IComparable<ParsedLine>
     }
 }
 
-internal class FileSorter : IDisposable
+internal class FileSorter
 {
     private List<string> _batchFileNames;
     
@@ -56,7 +55,6 @@ internal class FileSorter : IDisposable
         _batchFileNames = new List<string>();
         SplitFileIntoBatchFiles(fileName, maxBatchSize);
         MergeFiles(fileName);
-        RemoveBatchFiles();
     }
 
     private void SplitFileIntoBatchFiles(string fileName, long maxBatchSize)
@@ -132,10 +130,5 @@ internal class FileSorter : IDisposable
                 File.Delete(batchFileName);
             }
         }
-    }
-
-    public void Dispose()
-    {
-        RemoveBatchFiles();
     }
 }
