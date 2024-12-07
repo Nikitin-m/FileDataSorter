@@ -20,7 +20,7 @@ internal sealed class FileGenerator
     }
     public string Generate(long sizeBytes)
     {
-        var fileName = $"f_{sizeBytes}.txt";
+        const string fileName = "generatedFile.txt";
         var currentFileSize = 0L;
         using var writer = new StreamWriter(fileName);
         while (currentFileSize < sizeBytes)

@@ -1,11 +1,11 @@
 ﻿using System.Diagnostics;
-using System.Globalization;
 using System.Text;
 using FileDataSorter;
 
 var stopwatch = Stopwatch.StartNew();
 const long sizeInBytes = 1024 * 1024 * 1024; // 1gb
-var fileName = new FileGenerator().Generate(sizeInBytes); //"f_1073741824.txt";
+const long maxBatchSizeInBytes = 1024 * 1024 * 100; // 100 mb
+var fileName = "generatedFile.txt";//new FileGenerator().Generate(sizeInBytes);
 stopwatch.Stop();
 Console.WriteLine($"{fileName} generation took {stopwatch.ElapsedMilliseconds} ms");
 
@@ -17,11 +17,11 @@ Console.WriteLine($"{fileName} generation took {stopwatch.ElapsedMilliseconds} m
 
 stopwatch.Reset();
 stopwatch.Start();
-new FileSorter().Sort(fileName, 1024 * 1024 * 100); //100mb
+new FileSorter().Sort(fileName, maxBatchSizeInBytes);
 stopwatch.Stop();
 Console.WriteLine($"{fileName} sorting took {stopwatch.ElapsedMilliseconds} ms");
 
-internal class ParsedLine : IComparable<ParsedLine>
+internal sealed class ParsedLine : IComparable<ParsedLine>
 {
     public string ReaderLine { get; }
     public int Index { get; }
@@ -37,7 +37,7 @@ internal class ParsedLine : IComparable<ParsedLine>
         Str = span.Slice(Index + 2).ToString();
     }
 
-    public int CompareTo(ParsedLine? other)
+    public int CompareTo(ParsedLine other)
     {
         var stringComparison = string.Compare(Str, other.Str, StringComparison.Ordinal);
         if (stringComparison != 0) 
@@ -46,19 +46,45 @@ internal class ParsedLine : IComparable<ParsedLine>
     }
 }
 
-internal class FileSorter
+
+internal sealed class ParsedLineReader : IComparable<ParsedLineReader>
 {
-    private List<string> _batchFileNames;
-    
-    public void Sort(string fileName, long maxBatchSize = 1024 * 1024 * 1024) // 1gb
+    public ParsedLine ParsedLine { get; private set; }
+    public StreamReader? Reader { get; }
+
+    public ParsedLineReader(StreamReader? streamReader)
     {
-        _batchFileNames = new List<string>();
-        SplitFileIntoBatchFiles(fileName, maxBatchSize);
-        MergeFiles(fileName);
+        Reader = streamReader;
+        TryReadNextLine();
     }
 
-    private void SplitFileIntoBatchFiles(string fileName, long maxBatchSize)
+    public bool TryReadNextLine()
     {
+        var line = Reader?.ReadLine();
+        if (string.IsNullOrEmpty(line))
+            return false;
+        
+        ParsedLine = new ParsedLine(line);
+        return true;
+    }
+
+    public int CompareTo(ParsedLineReader other)
+    {
+        return ParsedLine.CompareTo(other.ParsedLine);
+    }
+}
+
+internal sealed class FileSorter
+{
+    public void Sort(string fileName, long maxBatchSize)
+    {
+        var fileNames = SplitFile(fileName, maxBatchSize);
+        MergeFiles(fileNames);
+    }
+
+    private List<string> SplitFile(string fileName, long maxBatchSize)
+    {
+        var fileNames = new List<string>();
         var parsedLines = new List<ParsedLine>();
         using var reader = File.OpenText(fileName);
         var currentBatchSize = 0L;
@@ -66,68 +92,75 @@ internal class FileSorter
         {
             var line = reader.ReadLine();
             var lineIsEmpty = string.IsNullOrEmpty(line);
-            
-            if (lineIsEmpty && currentBatchSize == 0)
-                break;
-                        
+  
             if (lineIsEmpty || currentBatchSize >= maxBatchSize)
             {
-                var batchFileName = $"batch{_batchFileNames.Count + 1}_{fileName}";
-                _batchFileNames.Add(batchFileName);
-                CreateSortedBatch(batchFileName, parsedLines);
+                var batchFileName = $"batch{fileNames.Count + 1}.txt";
+                fileNames.Add(batchFileName);
+                parsedLines.Sort();
+                WriteLines(batchFileName, parsedLines);
                 parsedLines.Clear();
                 currentBatchSize = 0;
-                continue;
             }
 
-            var parsedLine = new ParsedLine(line!);
-            parsedLines.Add(parsedLine);
-            currentBatchSize += Encoding.UTF8.GetBytes(line!).Length + Environment.NewLine.Length;
+            if (!lineIsEmpty)
+            {
+                var parsedLine = new ParsedLine(line!);
+                parsedLines.Add(parsedLine);
+                currentBatchSize += Encoding.UTF8.GetBytes(line!).Length + Environment.NewLine.Length;
+            }
+            else
+            {
+                break;
+            }
+
         }
+        
+        return fileNames;
     }
 
-    private void CreateSortedBatch(string fileName, List<ParsedLine> parsedLines)
+    private void WriteLines(string fileName, List<ParsedLine> parsedLines)
     {
         using var writer = new StreamWriter(fileName);
-        var parsedLinesArray = parsedLines.ToArray();
-        Array.Sort(parsedLinesArray);
-        foreach (var parsedLine in parsedLinesArray)
+        foreach (var parsedLine in parsedLines)
         {
             writer.WriteLine(parsedLine.ReaderLine);
         }
     }
     
-    private void MergeFiles(string fileName)
+    private void MergeFiles(List<string> fileNames)
     {
-        using var writer = new StreamWriter(fileName);
-        var readers = _batchFileNames.Select(x => new StreamReader(x)).ToArray();
-        var readerLines = readers
-            .ToDictionary(x=> new ParsedLine(x.ReadLine()), x=> x);
-
-        while (readerLines.Count > 0)
+        using var writer = new StreamWriter("sortedfile.txt");
+        var readers = fileNames.Select(x => new StreamReader(x)).ToArray();
+        try
         {
-            var lines = readerLines.Keys.ToArray();
-            Array.Sort(lines);
-            var parsedLine = lines[0];
-            var reader = readerLines[parsedLine];
-            
-            writer.WriteLine(lines[0].ReaderLine);
-            readerLines.Remove(parsedLine);
-            
-            if (!reader.EndOfStream)
-                readerLines.Add(new ParsedLine(reader.ReadLine()), reader);
-            else 
-                readerLines.Remove(parsedLine);
+            var parsedLineReaders = readers
+                .Select(x => new ParsedLineReader(x))
+                .ToList();
+        
+            while (parsedLineReaders.Count > 0)
+            {
+                parsedLineReaders.Sort();
+                var readerLine = parsedLineReaders[0];
+                writer.WriteLine(readerLine.ParsedLine.ReaderLine);
+                if (!readerLine.TryReadNextLine())
+                    parsedLineReaders.RemoveAt(0);
+            }
+        }
+        finally
+        {
+            foreach (var streamReader in readers) 
+                streamReader.Dispose();
         }
     }
 
-    private void RemoveBatchFiles()
+    private void RemoveFiles(List<string> fileNames)
     {
-        foreach (var batchFileName in _batchFileNames)
+        foreach (var fileName in fileNames)
         {
-            if (File.Exists(batchFileName))
+            if (File.Exists(fileName))
             {
-                File.Delete(batchFileName);
+                File.Delete(fileName);
             }
         }
     }
