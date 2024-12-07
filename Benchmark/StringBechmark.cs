@@ -25,4 +25,14 @@ public class StringBenchmark
         var str = example.Substring(index + 2);
         return str;
     }
+    
+    [Benchmark]
+    public string ByIndexAsSpan()
+    {
+        var span = example.AsSpan();
+        var index = span.IndexOf('.');
+        var number = int.Parse(span.Slice(0, index - 1));
+        var str = new string(span.Slice(index + 2));
+        return str;
+    }
 }

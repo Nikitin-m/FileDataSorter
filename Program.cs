@@ -27,14 +27,10 @@ internal class InMemoryFileSorter
             if (line == null)
                 continue;
 
-
-            var index = line.IndexOf('.');
-            // var spanLine
-            // var span = line.AsSpan();
-            // span.in
-            // var inta = int.Parse(span.Slice(0, index), NumberStyles.Integer);
-            var number = int.Parse(line.Substring(0, index));
-            var str = line.Substring(index + 2);
+            var span = line.AsSpan();
+            var index = span.IndexOf('.');
+            var number = int.Parse(span.Slice(0, index));
+            var str = span.Slice(index + 2).ToString();
             
             if (dict.TryGetValue(str, out var value))
                 value.Add(number);
@@ -50,7 +46,10 @@ internal class InMemoryFileSorter
             Array.Sort(numbers);
             foreach (var number in numbers)
             {
-                writer.WriteLine($"{number}. {strNumber.Key}");
+                writer.Write(number);
+                writer.Write(". ");
+                writer.Write(strNumber.Key);
+                writer.Write(Environment.NewLine);
             }
         }
     }
