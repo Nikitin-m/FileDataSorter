@@ -21,11 +21,11 @@ internal class InMemoryFileSorter
     {
         var dict = new Dictionary<string, List<int>>();
         using var reader = File.OpenText(fileName);
-        while (!reader.EndOfStream)
+        while (true)
         {
             var line = reader.ReadLine();
-            if (line == null)
-                continue;
+            if (string.IsNullOrWhiteSpace(line))
+                break;
 
             var span = line.AsSpan();
             var index = span.IndexOf('.');
@@ -48,8 +48,7 @@ internal class InMemoryFileSorter
             {
                 writer.Write(number);
                 writer.Write(". ");
-                writer.Write(strNumber.Key);
-                writer.Write(Environment.NewLine);
+                writer.WriteLine(strNumber.Key);
             }
         }
     }
