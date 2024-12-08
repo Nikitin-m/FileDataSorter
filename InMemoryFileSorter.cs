@@ -1,4 +1,6 @@
-﻿internal class InMemoryFileSorter
+﻿namespace FileDataSorter;
+
+internal class InMemoryFileSorter
 {
     //optimal only when a lot of equal strings
     public void Sort(string fileName)
@@ -21,8 +23,10 @@
             else 
                 dict.Add(str, new List<int> { number });
         }
+        
+        reader.Close();
 
-        using var writer = new StreamWriter($"sorted_{fileName}");
+        using var writer = new StreamWriter(fileName);
         
         foreach (var strNumber in dict.OrderBy(x=> x.Key))
         {

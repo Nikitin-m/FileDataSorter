@@ -3,5 +3,6 @@
 using Benchmark;
 using BenchmarkDotNet.Running;
 
-BenchmarkRunner.Run<StringBenchmark>();
+// BenchmarkRunner.Run<StringBenchmark>();
+BenchmarkRunner.Run<StringSizeBenchmark>();
 // Console.WriteLine(new StringBenchmark().ByIndex());
