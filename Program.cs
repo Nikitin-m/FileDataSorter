@@ -9,7 +9,7 @@ Console.WriteLine($"{fileName} generation took {stopwatch.Elapsed} ms");
 
 stopwatch.Reset();
 stopwatch.Start();
-const int maxRowsCount = 15_000_000; // almost 1gb
+const int maxRowsCount = 1_500_000; // almost 100 mb
 new FileSorterBoosted().Sort(fileName, maxRowsCount);
 stopwatch.Stop();
 Console.WriteLine($"{fileName} sorting took {stopwatch.Elapsed} ms");
