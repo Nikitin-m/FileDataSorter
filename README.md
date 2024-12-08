@@ -30,6 +30,13 @@
     </tr>
     <tr>
       <td>1 GB</td>
+      <td>36 s</td>
+      <td>1 mln</td>
+      <td>500 MB</td>
+      <td>1_000_000</td>
+    </tr>
+    <tr>
+      <td>1 GB</td>
       <td>34 s</td>
       <td>5 mln</td>
       <td>1500 MB</td>
