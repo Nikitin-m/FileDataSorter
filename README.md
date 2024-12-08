@@ -21,6 +21,13 @@
     </tr>
   </thead>
   <tbody>
+    <tr bold>
+      <td><strong>1 GB</strong></td>
+      <td><strong>32 s</strong></td>
+      <td><strong>1,5 mln (≈100 mb)</strong></td>
+      <td><strong>700 MB</strong></td>
+      <td><strong>1_000_000</strong></td>
+    </tr>
     <tr>
       <td>1 GB</td>
       <td>34 s</td>
@@ -34,6 +41,13 @@
       <td>15 mln (≈1 gb)</td>
       <td>3400 MB</td>
       <td>1_000_000</td>
+    </tr>
+    <tr>
+      <td>1 GB</td>
+      <td>34 s </td>
+      <td>1,5 mln (≈100 mb)</td>
+      <td>2900 MB</td>
+      <td>10_000_000</td>
     </tr>
     <tr>
       <td>1 GB</td>
